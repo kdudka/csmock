@@ -146,6 +146,7 @@ class MockWrapper:
         self.init_done = props.skip_mock_init
         self.skip_clean = props.skip_mock_clean
         self.use_login_shell = props.use_login_shell
+        self.emul_pty = False
         # just to silence pylint, will be initialized in __enter__()
         self.def_cmd = None
 
@@ -190,6 +191,12 @@ echo \"$self_pid\" > \"$lock_file\"'" \
         # re-enable verbose output per https://bugzilla.redhat.com/1166609
         self.def_cmd += ["--config-opts=print_main_output=True"]
 
+        # emulate tty to be able to kill mock as a non-root user
+        cmd = "script -aefqc \"echo test\" /dev/null 2>/dev/null"
+        (ec, out) = self.results.get_cmd_output(cmd)
+        if ec == 0 and out.strip() == "test":
+            self.emul_pty = True
+
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -204,7 +211,14 @@ echo \"$self_pid\" > \"$lock_file\"'" \
         os.system(cmd)
 
     def get_mock_cmd(self, args):
-        return self.def_cmd + args
+        cmd = self.def_cmd + args
+
+        if self.emul_pty:
+            # emulate tty to be able to kill mock as a non-root user
+            sh_cmd = strlist_to_shell_cmd(cmd, escape_special=True)
+            cmd = ["script", "-aefqc", sh_cmd, "/dev/null"]
+
+        return cmd
 
     def exec_mock_cmd(self, args):
         cmd = self.get_mock_cmd(args)
