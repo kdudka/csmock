@@ -310,11 +310,10 @@ class Plugin:
                     props.copy_out_files += [GCC_RESULTS_DIR]
 
                     # process all captured SARIF files
-                    # TODO: avoid exceeding maximum command line length
                     def filter_hook(results):
                         src = os.path.join(results.dbgdir_raw, GCC_RESULTS_DIR[1:])
                         dst = os.path.join(results.dbgdir_uni, "gcc-results.json")
-                        cmd = f"cd {src} && {FILTER_CMD} *.sarif > {dst}"
+                        cmd = f'{FILTER_CMD} --file-glob "{src}/*.sarif" > "{dst}"'
                         return results.exec_cmd(cmd, shell=True)
                     props.post_process_hooks += [filter_hook]
 
